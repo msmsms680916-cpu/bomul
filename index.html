@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>보물찾기 v3</title>
 <style>
   :root{
@@ -5,8 +10,9 @@
     --bg:#101014; --card:#1c1c22; --fg:#fff;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);display:flex;justify-content:center}
-  #app{position:relative;width:100%;max-width:480px;background:#fff;min-height:100%;overflow-x:hidden}
+  html,body{margin:0;padding:0;width:100%;overflow-x:hidden}
+  body{background:#fff}
+  #app{position:relative;width:100%;background:#fff;min-height:100%;overflow-x:hidden}
   .page{display:none}
   .page.active{display:block;position:relative}
   .page img.bg{display:block;width:100%;height:auto}
@@ -55,6 +61,8 @@
   .alabel.on{color:#1565e8}
   .alabel.off{color:#9aa4b0}
 </style>
+</head>
+<body>
 
 <div id="app">
 
@@ -1230,3 +1238,5 @@
     goBack();
   });
 </script>
+</body>
+</html>
