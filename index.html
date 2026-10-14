@@ -1,0 +1,1232 @@
+<title>보물찾기 v3</title>
+<style>
+  :root{
+    /* layout: fixed phone-width stack of .page divs, baked image background + invisible tap overlays */
+    --bg:#101014; --card:#1c1c22; --fg:#fff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);display:flex;justify-content:center}
+  #app{position:relative;width:100%;max-width:480px;background:#fff;min-height:100%;overflow-x:hidden}
+  .page{display:none}
+  .page.active{display:block;position:relative}
+  .page img.bg{display:block;width:100%;height:auto}
+  .ov{position:absolute;border:none;background:rgba(0,0,0,0);padding:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.08)}
+  .ov:active{background:rgba(0,0,0,0.06)}
+  .stub{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif}
+  .stub h2{margin:0;font-size:20px;color:#222}
+  .stub p{margin:0;color:#888;font-size:14px}
+  .stub button{margin-top:12px;padding:12px 28px;border-radius:24px;border:none;background:#0076FB;color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+  .cam-hidden-input{display:none}
+  #cam2-preview, #cam4-preview{position:absolute;left:0%;top:47%;width:100%;height:30%;object-fit:cover}
+  #zoom-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:999;align-items:center;justify-content:center}
+  #zoom-modal.open{display:flex}
+  #zoom-modal img{max-width:94%;max-height:90%;object-fit:contain}
+  .ai-part{position:relative}
+  .ai-part img.bg{display:block;width:100%;height:auto}
+  .ai-bar-fill{position:absolute;left:15%;height:2.3%;border-radius:999px;width:0%}
+  .ai-pct{position:absolute;left:86%;width:13%;font-weight:800;font-size:3.2vw;font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif}
+  #page-ai .ov[disabled]{pointer-events:none}
+  #ai-result-btn-wrap{position:relative;transition:opacity 0.3s}
+  #ai-result-btn-wrap.dim{opacity:0.45}
+  #result-front-photo,#result-back-photo{position:absolute;object-fit:cover;top:20.6%;height:17%}
+  #result-front-photo{left:1.5%;width:46.5%}
+  #result-back-photo{left:52%;width:45%}
+  .zoom-pill{position:absolute;background:rgba(20,20,20,0.55);color:#fff;border:none;border-radius:999px;font-size:2.6vw;font-weight:700;display:flex;align-items:center;justify-content:center;gap:2px;cursor:pointer;z-index:2}
+  .fab-pill{position:absolute;background:#1565e8;color:#fff;border:none;border-radius:999px;font-size:2.8vw;font-weight:800;font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;display:flex;align-items:center;justify-content:center;gap:3px;cursor:pointer;z-index:3;box-shadow:0 3px 10px rgba(21,101,232,0.5)}
+  #item-main-photo{position:absolute;left:0%;top:14.3%;width:75%;height:23.8%;object-fit:cover}
+  #item-photo-counter{position:absolute;left:60%;top:34%;width:13%;height:3.5%;background:rgba(20,20,20,0.65);color:#fff;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:3vw;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;pointer-events:none}
+  #hd-main-photo{position:absolute;left:0%;top:12%;width:66%;height:23.5%;object-fit:cover}
+  #wd-main-photo{position:absolute;left:0%;top:19.7%;width:66.3%;height:15.2%;object-fit:cover}
+  #wd-photo-counter{position:absolute;left:59%;top:31.5%;width:9%;height:3.2%;background:rgba(20,20,20,0.65);color:#fff;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:2.6vw;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;pointer-events:none}
+  #pay-main-photo{position:absolute;left:3%;top:14.5%;width:45%;height:21.5%;object-fit:cover;border-radius:4px}
+  #pay-select-border{position:absolute;border:3px solid #0062ff;border-radius:16px;pointer-events:none;box-sizing:border-box;background:rgba(0,98,255,0.05);width:44.6%;height:10.02%}
+  #pay-select-check{position:absolute;border-radius:50%;background:#0062ff;color:#fff;display:flex;align-items:center;justify-content:center;font-size:3.4vw;font-weight:700;pointer-events:none;width:6.57%;height:3.03%}
+  #hr-select-border{position:absolute;top:36.4%;border:3px solid #0d6efd;border-radius:10px;pointer-events:none;box-sizing:border-box;width:14.66%;height:11.6%}
+  #hr-select-fill{position:absolute;background:#0d6efd;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:3.4vw;font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;pointer-events:none;box-sizing:border-box;width:13.8%;height:4.1%}
+  #ar-dur-border{position:absolute;top:81.0%;height:4.6%;border:2px solid #0d6efd;border-radius:16px;pointer-events:none;box-sizing:border-box;background:rgba(13,110,253,0.08)}
+  #ar-dur-fill{position:absolute;top:81.0%;height:4.6%;display:flex;align-items:center;justify-content:center;color:#0d6efd;font-weight:800;font-size:3.1vw;font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;pointer-events:none}
+  #toast{position:fixed;left:50%;bottom:8%;transform:translateX(-50%) translateY(20px);background:rgba(20,20,20,0.88);color:#fff;padding:10px 20px;border-radius:999px;font-size:14px;font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;opacity:0;transition:opacity 0.25s, transform 0.25s;z-index:1000;pointer-events:none;white-space:nowrap}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .atoggle{position:absolute;border-radius:999px;cursor:pointer;display:flex;align-items:center;box-sizing:border-box;padding:0 4%;transition:background .15s ease}
+  .atoggle.on{background:#1565e8;justify-content:flex-end}
+  .atoggle.off{background:#d7dbe2;justify-content:flex-start}
+  .atoggle .aknob{width:46%;height:88%;background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.25)}
+  .alabel{position:absolute;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;font-size:2.6vw;pointer-events:none}
+  .alabel.on{color:#1565e8}
+  .alabel.off{color:#9aa4b0}
+</style>
+
+<div id="app">
+
+  <div class="page active" id="page-home">
+    <img class="bg" data-src="home.jpg" alt="보물찾기 홈">
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:66%;top:2.32%;width:10%;height:5.69%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:77%;top:2.32%;width:10%;height:5.69%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:88%;top:2.32%;width:10%;height:5.69%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물 촬영하기" style="left:5%;top:29.71%;width:51%;height:6.51%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:0%;top:36.74%;width:100%;height:15.5%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="보물경매" style="left:0%;top:54.31%;width:100%;height:12.82%;"></button>
+    <button class="ov" onclick="navigate('hunter')" aria-label="보물헌터" style="left:0%;top:68.99%;width:49.8%;height:16.12%;"></button>
+    <button class="ov" onclick="navigate('world')" aria-label="세계의 보물" style="left:50.2%;top:68.99%;width:49.8%;height:16.12%;"></button>
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:87.08%;width:20%;height:9.3%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:87.08%;width:20%;height:9.3%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="장터" style="left:40%;top:87.08%;width:20%;height:9.3%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매" style="left:60%;top:87.08%;width:20%;height:9.3%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:87.08%;width:20%;height:9.3%;"></button>
+  </div>
+
+  <div class="page" id="page-market">
+    <img class="bg" data-src="market.jpg" alt="보물장터">
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:65%;top:1.92%;width:11%;height:7.19%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:76%;top:1.92%;width:11%;height:7.19%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:87%;top:1.92%;width:12%;height:7.19%;"></button>
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:1%;top:12.19%;width:10%;height:7.19%;"></button>
+    <button class="ov" onclick="navigate('home')" aria-label="홈으로" style="left:86%;top:12.19%;width:13%;height:7.19%;"></button>
+
+    <button class="ov" onclick="showToast('동전 카테고리입니다')" aria-label="동전" style="left:0%;top:26.57%;width:20%;height:5.14%;"></button>
+    <button class="ov" onclick="showToast('카테고리 필터는 준비중입니다')" aria-label="지폐" style="left:20%;top:26.57%;width:20%;height:5.14%;"></button>
+    <button class="ov" onclick="showToast('카테고리 필터는 준비중입니다')" aria-label="우표" style="left:40%;top:26.57%;width:20%;height:5.14%;"></button>
+    <button class="ov" onclick="showToast('카테고리 필터는 준비중입니다')" aria-label="골동품" style="left:60%;top:26.57%;width:20%;height:5.14%;"></button>
+    <button class="ov" onclick="showToast('카테고리 필터는 준비중입니다')" aria-label="기타" style="left:80%;top:26.57%;width:20%;height:5.14%;"></button>
+
+    <button class="ov" onclick="showToast('전체 보기입니다')" aria-label="전체" style="left:1%;top:32.22%;width:13%;height:4.11%;"></button>
+    <button class="ov" onclick="showToast('필터 기능은 준비중입니다')" aria-label="한국 동전" style="left:15%;top:32.22%;width:18%;height:4.11%;"></button>
+    <button class="ov" onclick="showToast('필터 기능은 준비중입니다')" aria-label="외국 동전" style="left:34%;top:32.22%;width:18%;height:4.11%;"></button>
+    <button class="ov" onclick="showToast('필터 기능은 준비중입니다')" aria-label="기념 동전" style="left:53%;top:32.22%;width:19%;height:4.11%;"></button>
+    <button class="ov" onclick="showToast('필터 기능은 준비중입니다')" aria-label="시세·명품" style="left:73%;top:32.22%;width:16%;height:4.11%;"></button>
+    <button class="ov" onclick="showToast('정렬 기능은 준비중입니다')" aria-label="최신순 정렬" style="left:90%;top:32.22%;width:9%;height:4.11%;"></button>
+
+    <button class="ov" onclick="navigate('item')" aria-label="1966년 10원 동전 상세보기" style="left:0%;top:36.32%;width:50%;height:27.22%;"></button>
+    <button class="ov" onclick="navigate('item')" aria-label="1970년 100원 동전 상세보기" style="left:50%;top:36.32%;width:50%;height:27.22%;"></button>
+    <button class="ov" onclick="navigate('item')" aria-label="조선시대 상평통보 상세보기" style="left:0%;top:64.05%;width:50%;height:25.68%;"></button>
+    <button class="ov" onclick="navigate('item')" aria-label="한국은행 1,000원 상세보기" style="left:50%;top:64.05%;width:50%;height:25.68%;"></button>
+
+    <button class="ov" onclick="showToast('찜 목록에 추가되었습니다')" aria-label="1966년 10원 동전 찜하기" style="left:40%;top:37.35%;width:8%;height:3.08%;"></button>
+    <button class="ov" onclick="showToast('찜 목록에 추가되었습니다')" aria-label="1970년 100원 동전 찜하기" style="left:90%;top:37.35%;width:8%;height:3.08%;"></button>
+    <button class="ov" onclick="showToast('찜 목록에 추가되었습니다')" aria-label="조선시대 상평통보 찜하기" style="left:40%;top:65.08%;width:8%;height:3.08%;"></button>
+    <button class="ov" onclick="showToast('찜 목록에 추가되었습니다')" aria-label="한국은행 1,000원 찜하기" style="left:90%;top:65.08%;width:8%;height:3.08%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:89.73%;width:20%;height:10.27%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:89.73%;width:20%;height:10.27%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:89.73%;width:20%;height:10.27%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:89.73%;width:20%;height:10.27%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:89.73%;width:20%;height:10.27%;"></button>
+  </div>
+
+  <div class="page" id="page-item">
+    <img class="bg" data-src="itemdetail.jpg" alt="상품 상세">
+    <img id="item-main-photo" alt="대표 이미지">
+    <div id="item-photo-counter">1/4</div>
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:70%;top:3.7%;width:9%;height:4.61%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:81%;top:3.7%;width:9%;height:4.61%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:91%;top:3.7%;width:9%;height:4.61%;"></button>
+
+    <button class="ov" onclick="itemZoomOpen()" aria-label="상품 사진 확대" style="left:0%;top:12.21%;width:75%;height:24.38%;"></button>
+    <button class="ov" onclick="itemSelectPhoto(1)" aria-label="사진 1" style="left:79%;top:12.21%;width:20%;height:6.04%;"></button>
+    <button class="ov" onclick="itemSelectPhoto(2)" aria-label="사진 2" style="left:79%;top:18.87%;width:20%;height:7.48%;"></button>
+    <button class="ov" onclick="itemSelectPhoto(3)" aria-label="사진 3" style="left:79%;top:26.86%;width:20%;height:5.74%;"></button>
+    <button class="ov" onclick="itemSelectPhoto(4)" aria-label="사진 4" style="left:79%;top:33%;width:20%;height:5.02%;"></button>
+
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:7.29%;width:9%;height:4.61%;"></button>
+    <button class="ov" onclick="navigate('home')" aria-label="홈으로" style="left:88%;top:7.29%;width:10%;height:4.61%;"></button>
+
+    <button class="ov" onclick="showToast('보존 상태가 양호한 동전입니다')" aria-label="AI 감정 등급 안내" style="left:59%;top:37%;width:7%;height:4.61%;"></button>
+    <button class="ov" onclick="navigate('certificate')" aria-label="감정서 보기" style="left:71%;top:36.49%;width:28%;height:6.66%;"></button>
+    <button class="ov" onclick="showToast('찜 목록에 추가되었습니다')" aria-label="좋아요" style="left:81%;top:42.63%;width:18%;height:5.12%;"></button>
+    <button class="ov" onclick="shareResult()" aria-label="공유하기" style="left:79%;top:52.36%;width:21%;height:5.12%;"></button>
+
+    <button class="ov" onclick="navigate('stub-seller')" aria-label="판매자 정보" style="left:2%;top:82.58%;width:45%;height:5.12%;"></button>
+    <button class="ov" onclick="navigate('inquiry')" aria-label="판매자에게 문의하기" style="left:60%;top:83.1%;width:36%;height:3.59%;"></button>
+    <button class="ov" onclick="navigate('inquiry')" aria-label="물어보기" style="left:2%;top:87.19%;width:46%;height:4.1%;"></button>
+    <button class="ov" onclick="navigate('pay')" aria-label="구매하기" style="left:50%;top:87.19%;width:47%;height:4.1%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:92.83%;width:20%;height:7.17%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:92.83%;width:20%;height:7.17%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:92.83%;width:20%;height:7.17%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:92.83%;width:20%;height:7.17%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:92.83%;width:20%;height:7.17%;"></button>
+  </div>
+
+  <div class="page" id="page-pay">
+    <img class="bg" data-src="pay.jpg" alt="결제하기">
+    <img id="pay-main-photo" alt="상품 대표 이미지">
+    <div id="pay-select-border"></div>
+    <div id="pay-select-check">✓</div>
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:72%;top:2.98%;width:9%;height:4.62%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:81%;top:2.98%;width:9%;height:4.62%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:90%;top:2.98%;width:9%;height:4.62%;"></button>
+
+    <button class="ov" onclick="payZoomOpen()" aria-label="상품 사진 확대" style="left:3%;top:12.22%;width:45%;height:22.07%;"></button>
+    <button class="ov" onclick="paySelectPhoto(1)" aria-label="사진 1" style="left:50%;top:12.22%;width:11%;height:5.44%;"></button>
+    <button class="ov" onclick="paySelectPhoto(2)" aria-label="사진 2" style="left:50%;top:18.17%;width:11%;height:5.65%;"></button>
+    <button class="ov" onclick="paySelectPhoto(3)" aria-label="사진 3" style="left:50%;top:24.33%;width:11%;height:3.59%;"></button>
+    <button class="ov" onclick="paySelectPhoto(4)" aria-label="사진 4" style="left:50%;top:28.44%;width:11%;height:5.65%;"></button>
+    <button class="ov" onclick="navigate('stub-seller')" aria-label="판매자 정보" style="left:62%;top:28.13%;width:36%;height:6.16%;"></button>
+
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:7.08%;width:9%;height:4.11%;"></button>
+    <button class="ov" onclick="navigate('home')" aria-label="홈으로" style="left:90%;top:7.08%;width:9%;height:4.11%;"></button>
+
+    <button class="ov" onclick="paySelect(1,'신용/체크카드')" aria-label="신용 체크카드 결제" style="left:5%;top:49.18%;width:47%;height:11.81%;"></button>
+    <button class="ov" onclick="paySelect(2,'계좌이체')" aria-label="계좌이체 결제" style="left:55%;top:49.18%;width:41%;height:11.81%;"></button>
+    <button class="ov" onclick="paySelect(3,'간편결제')" aria-label="간편결제" style="left:5%;top:61.5%;width:47%;height:13.86%;"></button>
+    <button class="ov" onclick="paySelect(4,'보물페이')" aria-label="보물페이 결제" style="left:55%;top:61.5%;width:41%;height:13.86%;"></button>
+
+    <button class="ov" onclick="payConfirm()" aria-label="350,000원 결제하기" style="left:2%;top:89.73%;width:96%;height:4.62%;"></button>
+  </div>
+
+  <div class="page" id="page-auction">
+    <img class="bg" data-src="auction.jpg" alt="보물경매">
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:70%;top:3%;width:9%;height:5.5%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:80%;top:3%;width:9%;height:5.5%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:90%;top:3%;width:9%;height:5.5%;"></button>
+
+    <button class="ov" onclick="showToast('전체 경매 목록입니다')" aria-label="전체" style="left:1%;top:29%;width:22%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('카테고리 필터는 준비중입니다')" aria-label="동전 카테고리" style="left:25%;top:29%;width:21%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('카테고리 필터는 준비중입니다')" aria-label="지폐 카테고리" style="left:48%;top:29%;width:20%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('카테고리 필터는 준비중입니다')" aria-label="기념주화 카테고리" style="left:70%;top:29%;width:28%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('정렬 기능은 준비중입니다')" aria-label="마감임박순 정렬" style="left:1%;top:35%;width:21%;height:3.5%;"></button>
+    <button class="ov" onclick="showToast('필터 기능은 준비중입니다')" aria-label="필터" style="left:82%;top:35%;width:17%;height:3.5%;"></button>
+
+    <button class="ov" onclick="navigate('item')" aria-label="1966년 10원 동전 경매 상세보기" style="left:0%;top:39%;width:49%;height:25%;"></button>
+    <button class="ov" onclick="navigate('item')" aria-label="1970년 500원 동전 경매 상세보기" style="left:51%;top:39%;width:49%;height:25%;"></button>
+    <button class="ov" onclick="navigate('item')" aria-label="한국은행 1,000원 경매 상세보기" style="left:0%;top:65.5%;width:49%;height:24.5%;"></button>
+    <button class="ov" onclick="navigate('item')" aria-label="첨성대 기념주화 경매 상세보기" style="left:51%;top:65.5%;width:49%;height:24.5%;"></button>
+
+    <button class="ov" onclick="showToast('찜 목록에 추가되었습니다')" aria-label="1966년 10원 동전 찜하기" style="left:40%;top:39.5%;width:8%;height:3%;"></button>
+    <button class="ov" onclick="showToast('찜 목록에 추가되었습니다')" aria-label="1970년 500원 동전 찜하기" style="left:91%;top:39.5%;width:8%;height:3%;"></button>
+    <button class="ov" onclick="showToast('찜 목록에 추가되었습니다')" aria-label="한국은행 1,000원 찜하기" style="left:40%;top:66%;width:8%;height:3%;"></button>
+    <button class="ov" onclick="showToast('찜 목록에 추가되었습니다')" aria-label="첨성대 기념주화 찜하기" style="left:91%;top:66%;width:8%;height:3%;"></button>
+
+    <button class="fab-pill" onclick="navigate('auctionregister')" aria-label="경매 등록하기" style="left:78%;top:82%;width:20%;height:5.5%;">＋ 경매등록</button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:91%;width:20%;height:9%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:91%;width:20%;height:9%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:91%;width:20%;height:9%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:91%;width:20%;height:9%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:91%;width:20%;height:9%;"></button>
+  </div>
+
+  <div class="page" id="page-mypage">
+    <img class="bg" data-src="mypage.jpg" alt="마이페이지">
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:70%;top:5.5%;width:9%;height:5.5%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:80%;top:5.5%;width:9%;height:5.5%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:90%;top:5.5%;width:9%;height:5.5%;"></button>
+
+    <button class="ov" onclick="navigate('stub-profile')" aria-label="회원 정보" style="left:2%;top:24%;width:57%;height:5.5%;"></button>
+    <button class="ov" onclick="navigate('points')" aria-label="보유 포인트" style="left:60%;top:24%;width:38%;height:5.5%;"></button>
+
+    <button class="ov" onclick="navigate('points')" aria-label="내 포인트 레벨" style="left:1%;top:30.5%;width:98%;height:11.5%;"></button>
+
+    <button class="ov" onclick="navigate('stub-registered')" aria-label="등록한 보물 12건" style="left:0%;top:44%;width:25%;height:12%;"></button>
+    <button class="ov" onclick="navigate('stub-appraising')" aria-label="감정 진행중 3건" style="left:25%;top:44%;width:25%;height:12%;"></button>
+    <button class="ov" onclick="navigate('stub-appraised')" aria-label="감정 완료 6건" style="left:50%;top:44%;width:25%;height:12%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="내 경매 참여 5건" style="left:75%;top:44%;width:25%;height:12%;"></button>
+
+    <button class="ov" onclick="navigate('messages')" aria-label="쪽지함 관리" style="left:2%;top:57%;width:47%;height:8%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="내 경매 참여 메뉴" style="left:51%;top:57%;width:47%;height:8%;"></button>
+    <button class="ov" onclick="navigate('points')" aria-label="내 포인트 메뉴" style="left:2%;top:66%;width:47%;height:8%;"></button>
+    <button class="ov" onclick="navigate('inquiries')" aria-label="문의 내역" style="left:51%;top:66%;width:47%;height:8%;"></button>
+    <button class="ov" onclick="navigate('notif')" aria-label="알림 설정" style="left:2%;top:75%;width:47%;height:7%;"></button>
+    <button class="ov" onclick="navigate('accountsettings')" aria-label="계정 설정" style="left:51%;top:75%;width:47%;height:7%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:87%;width:20%;height:9%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:87%;width:20%;height:9%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:87%;width:20%;height:9%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:87%;width:20%;height:9%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:87%;width:20%;height:9%;"></button>
+  </div>
+
+  <div class="page" id="page-notif">
+    <img class="bg" data-src="alarm.jpg" alt="알림 설정">
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:1.5%;width:10%;height:5%;"></button>
+    <button class="ov" onclick="navigate('home')" aria-label="홈으로" style="left:88%;top:1.5%;width:11%;height:5%;"></button>
+
+    <div class="atoggle on" id="al-toggle-1" onclick="alarmToggle(1)" style="left:77.55%;top:22.53%;width:13.89%;height:4.1%;"><div class="aknob"></div></div>
+    <div class="alabel on" id="al-label-1" style="left:77.55%;top:27.47%;width:13.89%;height:1.3%;">ON</div>
+
+    <div class="atoggle on" id="al-toggle-2" onclick="alarmToggle(2)" style="left:77.55%;top:32.1%;width:13.89%;height:4.1%;"><div class="aknob"></div></div>
+    <div class="alabel on" id="al-label-2" style="left:77.55%;top:37.04%;width:13.89%;height:1.3%;">ON</div>
+
+    <div class="atoggle off" id="al-toggle-3" onclick="alarmToggle(3)" style="left:77.55%;top:42.9%;width:13.89%;height:4.1%;"><div class="aknob"></div></div>
+    <div class="alabel off" id="al-label-3" style="left:77.55%;top:47.79%;width:13.89%;height:1.3%;">OFF</div>
+
+    <div class="atoggle on" id="al-toggle-4" onclick="alarmToggle(4)" style="left:77.55%;top:53.45%;width:13.89%;height:4.1%;"><div class="aknob"></div></div>
+    <div class="alabel on" id="al-label-4" style="left:77.55%;top:58.33%;width:13.89%;height:1.3%;">ON</div>
+
+    <div class="atoggle off" id="al-toggle-5" onclick="alarmToggle(5)" style="left:77.55%;top:64.32%;width:13.89%;height:4.1%;"><div class="aknob"></div></div>
+    <div class="alabel off" id="al-label-5" style="left:77.55%;top:69.21%;width:13.89%;height:1.3%;">OFF</div>
+
+    <div class="atoggle on" id="al-toggle-6" onclick="alarmToggle(6)" style="left:77.55%;top:75.13%;width:13.89%;height:4.1%;"><div class="aknob"></div></div>
+    <div class="alabel on" id="al-label-6" style="left:77.55%;top:79.95%;width:13.89%;height:1.3%;">ON</div>
+
+    <div class="atoggle on" id="al-toggle-7" onclick="alarmToggle(7)" style="left:77.55%;top:85.61%;width:13.89%;height:4.1%;"><div class="aknob"></div></div>
+    <div class="alabel on" id="al-label-7" style="left:77.55%;top:90.56%;width:13.89%;height:1.3%;">ON</div>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:93%;width:20%;height:7%;"></button>
+  </div>
+
+  <div class="page" id="page-inquiries">
+    <img class="bg" data-src="inquiries.jpg" alt="문의 내역">
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:1.5%;width:10%;height:5%;"></button>
+    <button class="ov" onclick="navigate('home')" aria-label="홈으로" style="left:88%;top:1.5%;width:11%;height:5%;"></button>
+
+    <button class="ov" onclick="showToast('1:1 문의 기능은 준비중입니다')" aria-label="1:1 문의하기" style="left:2%;top:17.5%;width:47%;height:4.8%;"></button>
+    <button class="ov" onclick="showToast('자주 묻는 질문은 준비중입니다')" aria-label="자주 묻는 질문" style="left:51%;top:17.5%;width:47%;height:4.8%;"></button>
+
+    <button class="ov" onclick="showToast('전체 문의 내역입니다')" aria-label="전체 문의" style="left:1%;top:24.5%;width:26%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('답변 대기 문의입니다')" aria-label="답변 대기 문의" style="left:28%;top:24.5%;width:24%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('답변 완료 문의입니다')" aria-label="답변 완료 문의" style="left:53%;top:24.5%;width:22%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('처리 중 문의입니다')" aria-label="처리 중 문의" style="left:76%;top:24.5%;width:23%;height:4.5%;"></button>
+
+    <button class="ov" onclick="showToast('검색 기능은 준비중입니다')" aria-label="문의 검색" style="left:2%;top:31%;width:74%;height:4%;"></button>
+    <button class="ov" onclick="showToast('정렬 기능은 준비중입니다')" aria-label="최신순 정렬" style="left:77%;top:31%;width:21%;height:4%;"></button>
+
+    <button class="ov" onclick="navigate('stub-inquiry-detail')" aria-label="경매 문의 상세보기" style="left:0%;top:35.5%;width:100%;height:9.5%;"></button>
+    <button class="ov" onclick="navigate('stub-inquiry-detail')" aria-label="감정 문의 상세보기" style="left:0%;top:45%;width:100%;height:9.5%;"></button>
+    <button class="ov" onclick="navigate('stub-inquiry-detail')" aria-label="거래 문의 상세보기" style="left:0%;top:54.5%;width:100%;height:9.5%;"></button>
+    <button class="ov" onclick="navigate('stub-inquiry-detail')" aria-label="계정 문의 상세보기" style="left:0%;top:64%;width:100%;height:9.5%;"></button>
+    <button class="ov" onclick="navigate('stub-inquiry-detail')" aria-label="보물 등록 문의 상세보기" style="left:0%;top:73.5%;width:100%;height:9.5%;"></button>
+    <button class="ov" onclick="navigate('stub-inquiry-detail')" aria-label="기타 문의 상세보기" style="left:0%;top:83%;width:100%;height:9.5%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:93%;width:20%;height:7%;"></button>
+  </div>
+
+  <div class="page" id="page-messages">
+    <img class="bg" data-src="messages.jpg" alt="쪽지함 관리">
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:1.5%;width:10%;height:5%;"></button>
+    <button class="ov" onclick="navigate('home')" aria-label="홈으로" style="left:88%;top:1.5%;width:11%;height:5%;"></button>
+
+    <button class="ov" onclick="showToast('전체 쪽지함입니다')" aria-label="전체 쪽지" style="left:1%;top:24.5%;width:22%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('안읽은 쪽지함입니다')" aria-label="안읽음 쪽지" style="left:24%;top:24.5%;width:20%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('보낸 쪽지함입니다')" aria-label="보낸쪽지" style="left:45%;top:24.5%;width:19%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('중요 쪽지함입니다')" aria-label="중요 쪽지" style="left:65%;top:24.5%;width:14%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('휴지통입니다')" aria-label="휴지통" style="left:80%;top:24.5%;width:19%;height:4.5%;"></button>
+
+    <button class="ov" onclick="showToast('검색 기능은 준비중입니다')" aria-label="쪽지 검색" style="left:2%;top:31%;width:60%;height:4%;"></button>
+    <button class="ov" onclick="showToast('정렬 기능은 준비중입니다')" aria-label="쪽지 정렬" style="left:64%;top:31%;width:17%;height:4%;"></button>
+    <button class="ov" onclick="showToast('보기 방식 전환은 준비중입니다')" aria-label="보기 방식 전환" style="left:82%;top:31%;width:16%;height:4%;"></button>
+
+    <button class="ov" onclick="navigate('stub-message-detail')" aria-label="coinlover_kr 쪽지 보기" style="left:0%;top:35%;width:100%;height:9.5%;"></button>
+    <button class="ov" onclick="navigate('stub-message-detail')" aria-label="vintage_john 쪽지 보기" style="left:0%;top:44.5%;width:100%;height:10%;"></button>
+    <button class="ov" onclick="navigate('stub-message-detail')" aria-label="paris_collection 쪽지 보기" style="left:0%;top:54.5%;width:100%;height:10%;"></button>
+    <button class="ov" onclick="navigate('stub-message-detail')" aria-label="tokyo_antique 쪽지 보기" style="left:0%;top:64.5%;width:100%;height:10%;"></button>
+    <button class="ov" onclick="navigate('stub-message-detail')" aria-label="보물헌터77 쪽지 보기" style="left:0%;top:74.5%;width:100%;height:10%;"></button>
+    <button class="ov" onclick="navigate('stub-message-detail')" aria-label="동전사랑 쪽지 보기" style="left:0%;top:84.5%;width:100%;height:8.5%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:93%;width:20%;height:7%;"></button>
+  </div>
+
+  <div class="page" id="page-points">
+    <img class="bg" data-src="points.jpg" alt="내 포인트">
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:70%;top:2%;width:9%;height:6%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:80%;top:2%;width:9%;height:6%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:90%;top:2%;width:9%;height:6%;"></button>
+
+    <button class="ov" onclick="navigate('stub-point-history')" aria-label="포인트 내역 보기" style="left:1%;top:28%;width:98%;height:11%;"></button>
+
+    <button class="ov" onclick="navigate('aiservice')" aria-label="AI 감정서 이용" style="left:1%;top:47.5%;width:47%;height:14.5%;"></button>
+    <button class="ov" onclick="navigate('auctionpoints')" aria-label="경매 참여" style="left:51%;top:47.5%;width:47%;height:14.5%;"></button>
+    <button class="ov" onclick="navigate('premium')" aria-label="프리미엄 서비스" style="left:1%;top:62.5%;width:47%;height:13.5%;"></button>
+    <button class="ov" onclick="navigate('event')" aria-label="특별 이벤트" style="left:51%;top:62.5%;width:47%;height:13.5%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물 등록" style="left:1%;top:77%;width:47%;height:13%;"></button>
+    <button class="ov" onclick="showToast('선물하기 기능은 준비중입니다')" aria-label="선물하기" style="left:51%;top:77%;width:47%;height:13%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:94%;width:20%;height:6%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:94%;width:20%;height:6%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:94%;width:20%;height:6%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:94%;width:20%;height:6%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:94%;width:20%;height:6%;"></button>
+  </div>
+
+  <div class="page" id="page-aiservice">
+    <img class="bg" data-src="aiservice.jpg" alt="AI 감정서 이용">
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:69%;top:3%;width:9%;height:6%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:79%;top:3%;width:9%;height:6%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:89%;top:3%;width:9%;height:6%;"></button>
+
+    <button class="ov" onclick="navigate('camera1')" aria-label="일반 감정으로 보물 등록" style="left:0%;top:53.5%;width:49%;height:22.5%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="고급 감정으로 보물 등록" style="left:51%;top:53.5%;width:49%;height:22.5%;"></button>
+    <button class="ov" onclick="showToast('준비중입니다')" aria-label="포인트 충전하러 가기" style="left:4%;top:78%;width:92%;height:6%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:89%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:89%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:89%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:89%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:89%;width:20%;height:7%;"></button>
+  </div>
+
+  <div class="page" id="page-auctionpoints">
+    <img class="bg" data-src="auctionpoints.jpg" alt="포인트로 경매를 이용하세요">
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:70%;top:1%;width:9%;height:6%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:80%;top:1%;width:9%;height:6%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:90%;top:1%;width:9%;height:6%;"></button>
+
+    <button class="ov" onclick="navigate('auctionregister')" aria-label="경매 등록하기" style="left:0%;top:41%;width:49%;height:23%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="입찰 참여하기" style="left:51%;top:41%;width:49%;height:23%;"></button>
+    <button class="ov" onclick="showToast('준비중입니다')" aria-label="포인트 충전하러 가기" style="left:5%;top:83%;width:90%;height:7%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:93%;width:20%;height:7%;"></button>
+  </div>
+
+  <div class="page" id="page-premium">
+    <img class="bg" data-src="premium.jpg" alt="프리미엄 서비스">
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:69%;top:1%;width:9%;height:6%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:79%;top:1%;width:9%;height:6%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:89%;top:1%;width:9%;height:6%;"></button>
+
+    <button class="ov" onclick="showToast('일반 감정 방문 신청은 준비중입니다')" aria-label="일반 감정 신청" style="left:0%;top:66%;width:33%;height:13%;"></button>
+    <button class="ov" onclick="showToast('프리미엄 감정 방문 신청은 준비중입니다')" aria-label="프리미엄 감정 신청" style="left:33%;top:66%;width:34%;height:13%;"></button>
+    <button class="ov" onclick="showToast('특별 감정 방문 신청은 준비중입니다')" aria-label="특별 감정 신청" style="left:67%;top:66%;width:33%;height:13%;"></button>
+    <button class="ov" onclick="showToast('준비중입니다')" aria-label="포인트 충전하러 가기" style="left:5%;top:80.5%;width:90%;height:6%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:89%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:89%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:89%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:89%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:89%;width:20%;height:7%;"></button>
+  </div>
+
+  <div class="page" id="page-event">
+    <img class="bg" data-src="event.jpg" alt="이달의 특별 미션 이벤트">
+    <button class="ov" onclick="navigate('home')" aria-label="홈으로" style="left:0%;top:0%;width:35%;height:8%;"></button>
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:70%;top:1%;width:9%;height:6%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:80%;top:1%;width:9%;height:6%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:89%;top:1%;width:9%;height:6%;"></button>
+
+    <button class="ov" onclick="showToast('이벤트 참여 신청은 준비중입니다')" aria-label="이벤트 참여신청하기" style="left:5%;top:79%;width:90%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('준비중입니다')" aria-label="포인트 충전하러 가기" style="left:25%;top:95.5%;width:70%;height:4%;"></button>
+  </div>
+
+  <div class="page" id="page-hunter">
+    <img class="bg" data-src="huntermain.jpg" alt="보물헌터">
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:70%;top:0%;width:9%;height:7%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:79%;top:0%;width:9%;height:7%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:89%;top:0%;width:9%;height:7%;"></button>
+
+    <button class="ov" onclick="navigate('hunterlist')" aria-label="동전/지폐 의뢰 보기" style="left:0%;top:45.5%;width:20%;height:11%;"></button>
+    <button class="ov" onclick="navigate('hunterlist')" aria-label="골동품/유물 의뢰 보기" style="left:20%;top:45.5%;width:20%;height:11%;"></button>
+    <button class="ov" onclick="navigate('hunterlist')" aria-label="문서/자료 의뢰 보기" style="left:40%;top:45.5%;width:20%;height:11%;"></button>
+    <button class="ov" onclick="navigate('hunterlist')" aria-label="문화재/수집품 의뢰 보기" style="left:60%;top:45.5%;width:20%;height:11%;"></button>
+    <button class="ov" onclick="navigate('hunterlist')" aria-label="기타 화폐 아이템 의뢰 보기" style="left:80%;top:45.5%;width:20%;height:11%;"></button>
+
+    <button class="ov" onclick="navigate('hunterlist')" aria-label="헌터에게 의뢰하기" style="left:2%;top:78%;width:96%;height:8%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:90%;width:20%;height:8%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:90%;width:20%;height:8%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:90%;width:20%;height:8%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:90%;width:20%;height:8%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:90%;width:20%;height:8%;"></button>
+  </div>
+
+  <div class="page" id="page-hunterlist">
+    <img class="bg" data-src="hunterlist.jpg" alt="헌터 의뢰 게시판">
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:8%;width:9%;height:4.5%;"></button>
+    <button class="ov" onclick="navigate('hunterregister')" aria-label="의뢰 등록하기" style="left:68%;top:9%;width:30%;height:5.5%;"></button>
+
+    <button class="ov" onclick="showToast('전체 의뢰 목록입니다')" aria-label="전체 의뢰" style="left:2%;top:16%;width:15%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('카테고리 필터는 준비중입니다')" aria-label="동전 의뢰" style="left:18%;top:16%;width:11%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('카테고리 필터는 준비중입니다')" aria-label="지폐 의뢰" style="left:30%;top:16%;width:10%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('카테고리 필터는 준비중입니다')" aria-label="골동품 의뢰" style="left:41%;top:16%;width:15%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('카테고리 필터는 준비중입니다')" aria-label="유물 의뢰" style="left:57%;top:16%;width:11%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('카테고리 필터는 준비중입니다')" aria-label="문서자료 의뢰" style="left:69%;top:16%;width:16%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('카테고리 필터는 준비중입니다')" aria-label="기타 의뢰" style="left:86%;top:16%;width:12%;height:4.5%;"></button>
+
+    <button class="ov" onclick="navigate('hunterdetail')" aria-label="조선시대 용문 황금화 동전 의뢰 상세보기" style="left:0%;top:21%;width:100%;height:11.5%;"></button>
+    <button class="ov" onclick="navigate('hunterdetail')" aria-label="1970년대 1000원 지폐 의뢰 상세보기" style="left:0%;top:33%;width:100%;height:14%;"></button>
+    <button class="ov" onclick="navigate('hunterdetail')" aria-label="고려청자 매병 의뢰 상세보기" style="left:0%;top:48%;width:100%;height:15%;"></button>
+    <button class="ov" onclick="navigate('hunterdetail')" aria-label="조선시대 고서 의뢰 상세보기" style="left:0%;top:64%;width:100%;height:14%;"></button>
+    <button class="ov" onclick="navigate('hunterdetail')" aria-label="옛 시계와 카메라 의뢰 상세보기" style="left:0%;top:79%;width:100%;height:14%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:93%;width:20%;height:7%;"></button>
+  </div>
+
+  <div class="page" id="page-hunterdetail">
+    <img class="bg" data-src="hunterdetail.jpg" alt="헌터 의뢰 상세">
+    <img id="hd-main-photo" alt="의뢰 대표 이미지">
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:8%;width:9%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('관심 목록에 추가되었습니다')" aria-label="관심등록" style="left:55%;top:7.5%;width:21%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('공유 링크가 복사되었습니다')" aria-label="공유하기" style="left:77%;top:7.5%;width:21%;height:4.5%;"></button>
+
+    <button class="ov" onclick="hdZoomOpen()" aria-label="의뢰 사진 확대" style="left:0%;top:12%;width:66%;height:23.5%;"></button>
+    <button class="ov" onclick="hdSelectPhoto(1)" aria-label="사진 1" style="left:68%;top:12%;width:14%;height:11.5%;"></button>
+    <button class="ov" onclick="hdSelectPhoto(2)" aria-label="사진 2" style="left:84%;top:12%;width:14%;height:11.5%;"></button>
+    <button class="ov" onclick="hdSelectPhoto(3)" aria-label="사진 3" style="left:68%;top:23.5%;width:14%;height:12%;"></button>
+    <button class="ov" onclick="showToast('사진이 2장 더 있습니다')" aria-label="추가 사진 2장 보기" style="left:84%;top:23.5%;width:14%;height:12%;"></button>
+
+    <button class="ov" onclick="showToast('프로필 보기는 준비중입니다')" aria-label="프로필 보기" style="left:80%;top:54%;width:18%;height:4.5%;"></button>
+
+    <button class="ov" onclick="navigate('stub-inquiry')" aria-label="쪽지 보내기" style="left:2%;top:87%;width:46%;height:5%;"></button>
+    <button class="ov" onclick="showToast('거래 문의가 접수되었습니다')" aria-label="거래 문의하기" style="left:51%;top:87%;width:47%;height:5%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:93%;width:20%;height:7%;"></button>
+  </div>
+
+  <div class="page" id="page-hunterregister">
+    <img class="bg" data-src="hunterregister.jpg" alt="헌터 의뢰하기">
+    <div id="hr-select-border"></div>
+    <div id="hr-select-fill"></div>
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:8.5%;width:9%;height:4.5%;"></button>
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:68%;top:1%;width:9%;height:5.5%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:78%;top:1%;width:9%;height:5.5%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:88%;top:1%;width:9%;height:5.5%;"></button>
+
+    <button class="ov" onclick="showToast('사진 업로드 기능은 준비중입니다')" aria-label="보물 사진 올리기" style="left:2%;top:20.5%;width:47%;height:12.5%;"></button>
+    <button class="ov" onclick="showToast('사진 업로드 기능은 준비중입니다')" aria-label="사진 추가하기 2" style="left:50%;top:20.5%;width:23.5%;height:12.5%;"></button>
+    <button class="ov" onclick="showToast('사진 업로드 기능은 준비중입니다')" aria-label="사진 추가하기 3" style="left:74.5%;top:20.5%;width:23.5%;height:12.5%;"></button>
+
+    <button class="ov" onclick="hrSelectCategory(1,'동전')" aria-label="동전 선택" style="left:3.72%;top:36.4%;width:14.66%;height:11.6%;"></button>
+    <button class="ov" onclick="hrSelectCategory(2,'지폐')" aria-label="지폐 선택" style="left:19.32%;top:36.4%;width:14.66%;height:11.6%;"></button>
+    <button class="ov" onclick="hrSelectCategory(3,'골동품')" aria-label="골동품 선택" style="left:34.92%;top:36.4%;width:14.66%;height:11.6%;"></button>
+    <button class="ov" onclick="hrSelectCategory(4,'유물')" aria-label="유물 선택" style="left:50.52%;top:36.4%;width:14.66%;height:11.6%;"></button>
+    <button class="ov" onclick="hrSelectCategory(5,'문서/자료')" aria-label="문서자료 선택" style="left:66.12%;top:36.4%;width:14.66%;height:11.6%;"></button>
+    <button class="ov" onclick="hrSelectCategory(6,'기타')" aria-label="기타 선택" style="left:81.72%;top:36.4%;width:14.66%;height:11.6%;"></button>
+
+    <button class="ov" onclick="showToast('입력 기능은 준비중입니다')" aria-label="제목 입력" style="left:2%;top:52.5%;width:96%;height:6%;"></button>
+    <button class="ov" onclick="showToast('입력 기능은 준비중입니다')" aria-label="상세 내용 입력" style="left:2%;top:62.5%;width:96%;height:10%;"></button>
+    <button class="ov" onclick="showToast('지역 선택 기능은 준비중입니다')" aria-label="희망 지역 선택하기" style="left:2%;top:77%;width:47%;height:6.5%;"></button>
+    <button class="ov" onclick="showToast('입력 기능은 준비중입니다')" aria-label="희망 가격 입력" style="left:51%;top:77%;width:47%;height:6.5%;"></button>
+
+    <button class="ov" onclick="hrSubmit()" aria-label="의뢰 등록하기 제출" style="left:2%;top:85.5%;width:96%;height:5.5%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:93%;width:20%;height:7%;"></button>
+  </div>
+
+  <div class="page" id="page-camera1">
+    <img class="bg" data-src="camera1.jpg" alt="보물 촬영하기 - 앞면">
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:9.46%;width:10%;height:5.17%;"></button>
+    <button class="ov" onclick="camShoot('cam1')" aria-label="촬영하기" style="left:3%;top:82.31%;width:48.3%;height:7.76%;"></button>
+    <button class="ov" onclick="camPickAlbum('cam1')" aria-label="앨범에서 선택" style="left:52%;top:82.31%;width:45.5%;height:7.76%;"></button>
+    <input type="file" id="cam1-shoot-input" class="cam-hidden-input" accept="image/*" onchange="camPhotoChosen(this,'front')">
+    <input type="file" id="cam1-album-input" class="cam-hidden-input" accept="image/*" onchange="camPhotoChosen(this,'front')">
+  </div>
+
+  <div class="page" id="page-camera2">
+    <img class="bg" data-src="camera2.jpg" alt="촬영한 앞면 사진 확인">
+    <img id="cam2-preview" alt="촬영된 앞면 사진">
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:9.46%;width:10%;height:5.17%;"></button>
+    <button class="ov" onclick="camZoomOpen()" aria-label="확대보기" style="left:73%;top:45.99%;width:21%;height:3.1%;"></button>
+    <button class="ov" onclick="camZoomOpen()" aria-label="사진 확대" style="left:0%;top:49.3%;width:100%;height:26.9%;"></button>
+    <button class="ov" onclick="camRetake()" aria-label="다시 촬영하기" style="left:3%;top:84.79%;width:46.5%;height:8.48%;"></button>
+    <button class="ov" onclick="navigate('camera3')" aria-label="다음 단계로" style="left:51.6%;top:84.79%;width:45%;height:8.48%;"></button>
+  </div>
+
+  <div class="page" id="page-camera3">
+    <img class="bg" data-src="camera3.jpg" alt="보물 촬영하기 - 뒷면">
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:9.56%;width:10%;height:5.17%;"></button>
+    <button class="ov" onclick="camShoot('cam3')" aria-label="뒷면 촬영하기" style="left:3%;top:83.98%;width:47.5%;height:8.27%;"></button>
+    <button class="ov" onclick="camPickAlbum('cam3')" aria-label="뒷면 앨범에서 선택" style="left:52%;top:83.98%;width:45.5%;height:8.27%;"></button>
+    <input type="file" id="cam3-shoot-input" class="cam-hidden-input" accept="image/*" onchange="camPhotoChosen(this,'back')">
+    <input type="file" id="cam3-album-input" class="cam-hidden-input" accept="image/*" onchange="camPhotoChosen(this,'back')">
+  </div>
+
+  <div class="page" id="page-camera4">
+    <img class="bg" data-src="camera4.jpg" alt="촬영한 뒷면 사진 확인">
+    <img id="cam4-preview" alt="촬영된 뒷면 사진">
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:9.36%;width:10%;height:5.18%;"></button>
+    <button class="ov" onclick="camZoomOpen()" aria-label="뒷면 확대보기" style="left:73%;top:45.93%;width:21%;height:3.11%;"></button>
+    <button class="ov" onclick="camZoomOpen()" aria-label="뒷면 사진 확대" style="left:0%;top:49.24%;width:100%;height:26.93%;"></button>
+    <button class="ov" onclick="camRetake()" aria-label="뒷면 다시 촬영하기" style="left:3%;top:84.77%;width:46.5%;height:8.49%;"></button>
+    <button class="ov" onclick="navigate('ai')" aria-label="AI 감정하기" style="left:51.6%;top:84.77%;width:45%;height:8.49%;"></button>
+  </div>
+
+  <div class="page" id="page-ai">
+    <div class="ai-part">
+      <img class="bg" data-src="ai_top.jpg" alt="AI 감정 - 분석중">
+      <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:18.48%;width:10%;height:8.47%;"></button>
+    </div>
+    <div class="ai-part">
+      <img class="bg" data-src="ai_rows.jpg" alt="AI 분석 단계별 진행률">
+      <div class="ai-bar-fill" id="ai-bar-1" style="top:14.34%;background:#0398FC"></div>
+      <div class="ai-pct" id="ai-pct-1" style="top:13.9%;color:#0398FC">0%</div>
+      <div class="ai-bar-fill" id="ai-bar-2" style="top:33.46%;background:#0398FC"></div>
+      <div class="ai-pct" id="ai-pct-2" style="top:33.0%;color:#0398FC">0%</div>
+      <div class="ai-bar-fill" id="ai-bar-3" style="top:53.56%;background:#FFC734"></div>
+      <div class="ai-pct" id="ai-pct-3" style="top:53.1%;color:#FFC734">0%</div>
+      <div class="ai-bar-fill" id="ai-bar-4" style="top:73.43%;background:#0398FC"></div>
+      <div class="ai-pct" id="ai-pct-4" style="top:73.0%;color:#0398FC">0%</div>
+      <div class="ai-bar-fill" id="ai-bar-5" style="top:93.29%;background:#0398FC"></div>
+      <div class="ai-pct" id="ai-pct-5" style="top:92.8%;color:#0398FC">0%</div>
+    </div>
+    <div class="ai-part" id="ai-result-btn-wrap">
+      <img class="bg" data-src="ai_bottom.jpg" alt="AI 감정서 보기">
+      <button class="ov" id="ai-result-btn" onclick="navigate('result')" aria-label="AI 감정서 보기" style="left:3%;top:0%;width:94%;height:80%;"></button>
+    </div>
+  </div>
+
+  <div class="page" id="page-result">
+    <img class="bg" data-src="result.jpg" alt="AI 감정서 보기">
+    <img id="result-front-photo" alt="앞면 사진">
+    <img id="result-back-photo" alt="뒷면 사진">
+    <button class="ov" onclick="camZoomOpen('front')" aria-label="앞면 사진 확대" style="left:1.5%;top:18.15%;width:46.5%;height:14.43%;"></button>
+    <button class="ov" onclick="camZoomOpen('back')" aria-label="뒷면 사진 확대" style="left:52%;top:18.15%;width:45%;height:14.43%;"></button>
+    <button class="zoom-pill" onclick="camZoomOpen('front')" aria-label="앞면 확대보기" style="left:35%;top:31.55%;width:13%;height:3.4%;">🔍 확대</button>
+    <button class="zoom-pill" onclick="camZoomOpen('back')" aria-label="뒷면 확대보기" style="left:83.5%;top:31.55%;width:13%;height:3.4%;">🔍 확대</button>
+    <button class="ov" onclick="showToast('감정서가 저장되었습니다')" aria-label="감정서 저장하기" style="left:4%;top:82.89%;width:45.5%;height:6.6%;"></button>
+    <button class="ov" onclick="shareResult()" aria-label="감정서 공유하기" style="left:50.5%;top:82.89%;width:45.5%;height:6.6%;"></button>
+    <button class="ov" onclick="navigate('stub-register')" aria-label="이 보물 등록하기" style="left:3.8%;top:90.31%;width:92.3%;height:7.53%;"></button>
+  </div>
+
+  <div class="page" id="page-world">
+    <img class="bg" data-src="world.jpg" alt="세계의 보물">
+    <button class="ov" onclick="navigate('home')" aria-label="홈으로" style="left:0%;top:0%;width:24%;height:10%;"></button>
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:66%;top:5.5%;width:10%;height:5.5%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:77%;top:5.5%;width:10%;height:5.5%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:88%;top:5.5%;width:10%;height:5.5%;"></button>
+
+    <button class="ov" onclick="navigate('worldlist')" aria-label="동전" style="left:0%;top:40.5%;width:16%;height:12.5%;"></button>
+    <button class="ov" onclick="navigate('worldlist')" aria-label="지폐" style="left:16.9%;top:40.5%;width:15.8%;height:12.5%;"></button>
+    <button class="ov" onclick="navigate('worldlist')" aria-label="골동품" style="left:33.8%;top:40.5%;width:15.8%;height:12.5%;"></button>
+    <button class="ov" onclick="navigate('worldlist')" aria-label="우표" style="left:50.7%;top:40.5%;width:15.8%;height:12.5%;"></button>
+    <button class="ov" onclick="navigate('worldlist')" aria-label="화석" style="left:67.6%;top:40.5%;width:15.8%;height:12.5%;"></button>
+    <button class="ov" onclick="navigate('worldlist')" aria-label="미술품" style="left:84.6%;top:40.5%;width:15.4%;height:12.5%;"></button>
+
+    <button class="ov" onclick="navigate('worldlist')" aria-label="보물 SNS 참여하기" style="left:5%;top:73%;width:90%;height:6%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:88%;width:20%;height:12%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:88%;width:20%;height:12%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:88%;width:20%;height:12%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:88%;width:20%;height:12%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:88%;width:20%;height:12%;"></button>
+  </div>
+
+  <div class="page" id="page-worldlist">
+    <img class="bg" data-src="worldlist.jpg" alt="세계의 보물 피드">
+    <button class="ov" onclick="navigate('home')" aria-label="홈으로" style="left:0%;top:0%;width:24%;height:8%;"></button>
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:66%;top:3%;width:10%;height:5%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:77%;top:3%;width:10%;height:5%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:88%;top:3%;width:10%;height:5%;"></button>
+
+    <button class="ov" onclick="showToast('전체 보기입니다')" aria-label="전체" style="left:1%;top:25.5%;width:15%;height:5.5%;"></button>
+    <button class="ov" onclick="showToast('한국 피드는 준비중입니다')" aria-label="한국" style="left:16%;top:25.5%;width:15%;height:5.5%;"></button>
+    <button class="ov" onclick="showToast('미국 피드는 준비중입니다')" aria-label="미국" style="left:31%;top:25.5%;width:15%;height:5.5%;"></button>
+    <button class="ov" onclick="showToast('일본 피드는 준비중입니다')" aria-label="일본" style="left:46%;top:25.5%;width:13%;height:5.5%;"></button>
+    <button class="ov" onclick="showToast('유럽 피드는 준비중입니다')" aria-label="유럽" style="left:59%;top:25.5%;width:15%;height:5.5%;"></button>
+    <button class="ov" onclick="showToast('중국 피드는 준비중입니다')" aria-label="중국" style="left:74%;top:25.5%;width:15%;height:5.5%;"></button>
+    <button class="ov" onclick="showToast('기타 피드는 준비중입니다')" aria-label="기타" style="left:90%;top:25.5%;width:10%;height:5.5%;"></button>
+
+    <button class="ov" onclick="navigate('worlddetail')" aria-label="1966년 10원 동전 게시글" style="left:0%;top:31%;width:100%;height:13%;"></button>
+    <button class="ov" onclick="navigate('worlddetail')" aria-label="100년 된 회중시계 게시글" style="left:0%;top:44%;width:100%;height:12%;"></button>
+    <button class="ov" onclick="navigate('worlddetail')" aria-label="1897년 프랑스 우표 게시글" style="left:0%;top:56%;width:100%;height:12%;"></button>
+    <button class="ov" onclick="navigate('worlddetail')" aria-label="청나라 도자기 게시글" style="left:0%;top:68%;width:100%;height:12%;"></button>
+    <button class="ov" onclick="navigate('worlddetail')" aria-label="회귀한 고대 화석 게시글" style="left:0%;top:80%;width:100%;height:12%;"></button>
+    <button class="ov" onclick="showToast('새 게시글 작성은 준비중입니다')" aria-label="게시글 작성하기" style="left:83%;top:77.5%;width:14%;height:8%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:93%;width:20%;height:7%;"></button>
+  </div>
+
+  <div class="page" id="page-worlddetail">
+    <img class="bg" data-src="worlddetail.jpg" alt="세계의 보물 상세">
+    <img id="wd-main-photo" alt="게시글 대표 사진">
+    <div id="wd-photo-counter">1/3</div>
+
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:66%;top:3%;width:10%;height:5%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:77%;top:3%;width:10%;height:5%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:88%;top:3%;width:10%;height:5%;"></button>
+
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:14%;width:11%;height:5.5%;"></button>
+    <button class="ov" onclick="shareResult()" aria-label="공유하기" style="left:78%;top:14%;width:13%;height:5.5%;"></button>
+    <button class="ov" onclick="showToast('더보기 메뉴는 준비중입니다')" aria-label="더보기" style="left:91%;top:14%;width:9%;height:5.5%;"></button>
+
+    <button class="ov" onclick="wdZoomOpen()" aria-label="게시글 사진 확대" style="left:0%;top:19.7%;width:66.3%;height:15.2%;"></button>
+    <button class="ov" onclick="wdSelectPhoto(1)" aria-label="사진 2" style="left:68%;top:19.4%;width:32%;height:9.2%;"></button>
+    <button class="ov" onclick="wdSelectPhoto(2)" aria-label="사진 3" style="left:68%;top:28.6%;width:32%;height:9.4%;"></button>
+    <button class="ov" onclick="showToast('팔로우했습니다')" aria-label="팔로우" style="left:70%;top:14.5%;width:25%;height:3.3%;"></button>
+
+    <button class="ov" onclick="showToast('찜 목록에 추가되었습니다')" aria-label="좋아요" style="left:1%;top:50.8%;width:15%;height:3.4%;"></button>
+    <button class="ov" onclick="showToast('댓글 목록입니다')" aria-label="댓글 24" style="left:20%;top:50.8%;width:13%;height:3.4%;"></button>
+    <button class="ov" onclick="showToast('저장되었습니다')" aria-label="저장" style="left:49%;top:50.8%;width:17%;height:3.4%;"></button>
+    <button class="ov" onclick="shareResult()" aria-label="공유하기" style="left:71%;top:50.8%;width:22%;height:3.4%;"></button>
+
+    <button class="ov" onclick="navigate('messages')" aria-label="쪽지 보내기" style="left:1%;top:55.1%;width:47%;height:4.4%;"></button>
+    <button class="ov" onclick="showToast('거래 문의가 접수되었습니다')" aria-label="거래 문의하기" style="left:50%;top:55.1%;width:49%;height:4.4%;"></button>
+
+    <button class="ov" onclick="showToast('최신순으로 보는 중입니다')" aria-label="댓글 정렬" style="left:81%;top:60.8%;width:16%;height:2.4%;"></button>
+
+    <button class="ov" onclick="showToast('댓글을 입력해주세요')" aria-label="댓글 입력" style="left:11%;top:86%;width:75%;height:3.8%;"></button>
+    <button class="ov" onclick="showToast('댓글이 등록되었습니다')" aria-label="댓글 등록" style="left:87%;top:86%;width:11%;height:3.8%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:91.1%;width:20%;height:8.9%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:91.1%;width:20%;height:8.9%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:91.1%;width:20%;height:8.9%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:91.1%;width:20%;height:8.9%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:91.1%;width:20%;height:8.9%;"></button>
+  </div>
+
+  <div class="page" id="page-inquiry">
+    <img class="bg" data-src="inquiry.jpg" alt="판매자에게 물어보기">
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:66%;top:3%;width:10%;height:5%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:77%;top:3%;width:10%;height:5%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:88%;top:3%;width:10%;height:5%;"></button>
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:10.5%;width:11%;height:5%;"></button>
+
+    <button class="ov" onclick="navigate('item')" aria-label="상품 상세보기" style="left:0%;top:16%;width:100%;height:16%;"></button>
+    <button class="ov" onclick="navigate('stub-seller')" aria-label="판매자 프로필 보기" style="left:60%;top:34%;width:38%;height:5%;"></button>
+
+    <button class="ov" onclick="inqZoom('photo1.jpg')" aria-label="보낸 사진 1" style="left:0%;top:63%;width:26%;height:13%;"></button>
+    <button class="ov" onclick="inqZoom('photo2.jpg')" aria-label="보낸 사진 2" style="left:27%;top:63%;width:26%;height:13%;"></button>
+    <button class="ov" onclick="inqZoom('photo3.jpg')" aria-label="보낸 사진 3" style="left:54%;top:63%;width:26%;height:13%;"></button>
+
+    <button class="ov" onclick="showToast('사진 첨부는 준비중입니다')" aria-label="사진 첨부" style="left:1%;top:89%;width:9%;height:4%;"></button>
+    <button class="ov" onclick="showToast('메시지를 입력해주세요')" aria-label="메시지 입력" style="left:11%;top:89%;width:68%;height:4%;"></button>
+    <button class="ov" onclick="showToast('메시지가 전송되었습니다')" aria-label="메시지 전송" style="left:88%;top:89%;width:11%;height:4%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:93%;width:20%;height:7%;"></button>
+  </div>
+
+  <div class="page" id="page-paydone">
+    <img class="bg" data-src="paydone.jpg" alt="결제 완료">
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:66%;top:3%;width:10%;height:5%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:77%;top:3%;width:10%;height:5%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:88%;top:3%;width:10%;height:5%;"></button>
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:10.5%;width:11%;height:4.5%;"></button>
+    <button class="ov" onclick="navigate('home')" aria-label="홈으로" style="left:88%;top:10.5%;width:10%;height:4.5%;"></button>
+
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터로 이동하기" style="left:2%;top:86%;width:96%;height:5.5%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터2" style="left:40%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:93%;width:20%;height:7%;"></button>
+  </div>
+
+  <div class="page" id="page-accountsettings">
+    <img class="bg" data-src="accountsettings.jpg" alt="계정 설정">
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:0.5%;width:10%;height:4%;"></button>
+    <button class="ov" onclick="navigate('home')" aria-label="홈으로" style="left:88%;top:0.5%;width:10%;height:4%;"></button>
+
+    <button class="ov" onclick="showToast('회원정보 수정은 준비중입니다')" aria-label="회원정보 수정" style="left:0%;top:27%;width:100%;height:14%;"></button>
+    <button class="ov" onclick="showToast('비밀번호 변경은 준비중입니다')" aria-label="비밀번호 변경" style="left:0%;top:43%;width:100%;height:14%;"></button>
+    <button class="ov" onclick="logoutConfirm()" aria-label="로그아웃" style="left:0%;top:60%;width:100%;height:13%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:93%;width:20%;height:7%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:93%;width:20%;height:7%;"></button>
+  </div>
+
+  <div class="page" id="page-auctionregister">
+    <img class="bg" data-src="auctionregister.jpg" alt="경매 등록하기">
+    <div id="ar-dur-border"></div>
+    <div id="ar-dur-fill"></div>
+
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:76%;top:2.5%;width:8%;height:5%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:85%;top:2.5%;width:8%;height:5%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:93%;top:2.5%;width:7%;height:5%;"></button>
+    <button class="ov" onclick="goBack()" aria-label="뒤로" style="left:2%;top:9%;width:9%;height:4.5%;"></button>
+
+    <button class="ov" onclick="showToast('사진 업로드는 준비중입니다')" aria-label="사진 추가하기" style="left:3%;top:26%;width:31%;height:9%;"></button>
+    <button class="ov" onclick="showToast('사진 업로드는 준비중입니다')" aria-label="사진 추가 2" style="left:36%;top:26%;width:15%;height:9%;"></button>
+    <button class="ov" onclick="showToast('사진 업로드는 준비중입니다')" aria-label="사진 추가 3" style="left:52%;top:26%;width:15%;height:9%;"></button>
+    <button class="ov" onclick="showToast('사진 업로드는 준비중입니다')" aria-label="사진 추가 4" style="left:68%;top:26%;width:15%;height:9%;"></button>
+    <button class="ov" onclick="showToast('사진 업로드는 준비중입니다')" aria-label="사진 추가 5" style="left:84%;top:26%;width:14%;height:9%;"></button>
+
+    <button class="ov" onclick="showToast('보물 제목을 입력해주세요')" aria-label="보물 제목 입력" style="left:3%;top:40%;width:94%;height:6%;"></button>
+    <button class="ov" onclick="showToast('카테고리 선택은 준비중입니다')" aria-label="카테고리 선택" style="left:3%;top:49%;width:94%;height:6%;"></button>
+    <button class="ov" onclick="showToast('상품 설명을 입력해주세요')" aria-label="상품 설명 입력" style="left:3%;top:58%;width:94%;height:9%;"></button>
+    <button class="ov" onclick="showToast('시작가를 입력해주세요')" aria-label="시작가 입력" style="left:3%;top:70%;width:44%;height:6%;"></button>
+    <button class="ov" onclick="showToast('즉시구매가를 입력해주세요')" aria-label="즉시구매가 입력" style="left:52%;top:70%;width:44%;height:6%;"></button>
+
+    <button class="ov" onclick="arSelectDuration(1,'1일')" aria-label="경매기간 1일" style="left:3%;top:80%;width:24%;height:6%;"></button>
+    <button class="ov" onclick="arSelectDuration(2,'3일')" aria-label="경매기간 3일" style="left:27%;top:80%;width:24%;height:6%;"></button>
+    <button class="ov" onclick="arSelectDuration(3,'5일')" aria-label="경매기간 5일" style="left:50%;top:80%;width:23%;height:6%;"></button>
+    <button class="ov" onclick="arSelectDuration(4,'7일')" aria-label="경매기간 7일" style="left:73%;top:80%;width:24%;height:6%;"></button>
+
+    <button class="ov" onclick="arSubmit()" aria-label="경매 등록하기 제출" style="left:3%;top:86.5%;width:94%;height:5%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:91%;width:20%;height:9%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:91%;width:20%;height:9%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="보물장터" style="left:40%;top:91%;width:20%;height:9%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매하기" style="left:60%;top:91%;width:20%;height:9%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:91%;width:20%;height:9%;"></button>
+  </div>
+
+  <div class="page" id="page-certificate">
+    <img class="bg" data-src="certificate.jpg" alt="AI 감정서">
+    <button class="ov" onclick="navigate('home')" aria-label="로고 홈으로" style="left:0%;top:0%;width:24%;height:11%;"></button>
+    <button class="ov" onclick="navigate('search')" aria-label="검색" style="left:72%;top:3%;width:9%;height:5%;"></button>
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림" style="left:81%;top:3%;width:9%;height:5%;"></button>
+    <button class="ov" onclick="navigate('menu')" aria-label="전체메뉴" style="left:90%;top:3%;width:9%;height:5%;"></button>
+
+    <button class="ov" onclick="certZoomOpen('front')" aria-label="앞면 사진 확대" style="left:2%;top:20%;width:46%;height:20%;"></button>
+    <button class="ov" onclick="certZoomOpen('back')" aria-label="뒷면 사진 확대" style="left:52%;top:20%;width:46%;height:20%;"></button>
+
+    <button class="ov" onclick="showToast('감정서가 저장되었습니다')" aria-label="감정서 저장하기" style="left:2%;top:85.5%;width:47%;height:5.5%;"></button>
+    <button class="ov" onclick="shareResult()" aria-label="감정서 공유하기" style="left:51%;top:85.5%;width:47%;height:5.5%;"></button>
+    <button class="ov" onclick="navigate('stub-register')" aria-label="이 보물 등록하기" style="left:3%;top:92.5%;width:94%;height:6%;"></button>
+  </div>
+
+  <div class="page" id="page-notifications">
+    <img class="bg" data-src="notifications.jpg" alt="알림">
+    <button class="ov" onclick="goBack()" aria-label="알림 닫기" style="left:85%;top:8%;width:8%;height:4%;"></button>
+
+    <button class="ov" onclick="showToast('전체 알림입니다')" aria-label="전체 알림" style="left:5%;top:16.5%;width:18%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('거래 알림만 모아봅니다')" aria-label="거래 알림" style="left:24%;top:16.5%;width:18%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('경매 알림만 모아봅니다')" aria-label="경매 알림" style="left:43%;top:16.5%;width:18%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('쪽지 알림만 모아봅니다')" aria-label="쪽지 알림" style="left:62%;top:16.5%;width:18%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('시스템 알림만 모아봅니다')" aria-label="시스템 알림" style="left:81%;top:16.5%;width:18%;height:4.5%;"></button>
+
+    <button class="ov" onclick="navigate('auction')" aria-label="경매 입찰 알림" style="left:5%;top:20.3%;width:90%;height:10.9%;"></button>
+    <button class="ov" onclick="navigate('messages')" aria-label="쪽지 도착 알림" style="left:5%;top:31.2%;width:90%;height:10.9%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="구매 완료 알림" style="left:5%;top:42.1%;width:90%;height:10.9%;"></button>
+    <button class="ov" onclick="navigate('certificate')" aria-label="AI 감정서 완료 알림" style="left:5%;top:53.0%;width:90%;height:10.9%;"></button>
+    <button class="ov" onclick="navigate('event')" aria-label="특별 이벤트 알림" style="left:5%;top:63.9%;width:90%;height:10.9%;"></button>
+    <button class="ov" onclick="showToast('시스템 공지사항입니다')" aria-label="시스템 안내 알림" style="left:5%;top:74.8%;width:90%;height:10.9%;"></button>
+
+    <button class="ov" onclick="showToast('모든 알림을 읽음으로 표시했습니다')" aria-label="모두 읽음으로 표시" style="left:5%;top:85.7%;width:90%;height:4.8%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:92.3%;width:20%;height:7.7%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:92.3%;width:20%;height:7.7%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="장터" style="left:40%;top:92.3%;width:20%;height:7.7%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매" style="left:60%;top:92.3%;width:20%;height:7.7%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이페이지" style="left:80%;top:92.3%;width:20%;height:7.7%;"></button>
+  </div>
+
+  <div class="page" id="page-menu">
+    <img class="bg" data-src="fullmenu.jpg" alt="전체 메뉴">
+    <button class="ov" onclick="goBack()" aria-label="메뉴 닫기" style="left:89%;top:3%;width:8%;height:5%;"></button>
+    <button class="ov" onclick="goBack()" aria-label="메뉴 바깥 영역 닫기" style="left:0%;top:0%;width:38%;height:100%;"></button>
+
+    <button class="ov" onclick="showToast('회원 정보는 준비중입니다')" aria-label="보물사랑님 프로필" style="left:40%;top:27%;width:58%;height:11%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="메뉴 홈" style="left:40%;top:38%;width:58%;height:6%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="메뉴 보물 촬영하기" style="left:40%;top:44%;width:58%;height:6%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="메뉴 보물장터" style="left:40%;top:50%;width:58%;height:6%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="메뉴 경매하기" style="left:40%;top:56%;width:58%;height:6%;"></button>
+    <button class="ov" onclick="navigate('hunter')" aria-label="메뉴 헌터" style="left:40%;top:62%;width:58%;height:6%;"></button>
+    <button class="ov" onclick="navigate('world')" aria-label="메뉴 세계의 보물" style="left:40%;top:68%;width:58%;height:6%;"></button>
+    <button class="ov" onclick="navigate('event')" aria-label="메뉴 오늘의 보물" style="left:40%;top:74%;width:58%;height:6%;"></button>
+    <button class="ov" onclick="navigate('messages')" aria-label="메뉴 쪽지" style="left:40%;top:80%;width:58%;height:6%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="메뉴 마이페이지" style="left:40%;top:86%;width:58%;height:6%;"></button>
+
+    <button class="ov" onclick="navigate('notifications')" aria-label="알림함" style="left:40%;top:92%;width:14%;height:5%;"></button>
+    <button class="ov" onclick="navigate('search')" aria-label="통합검색" style="left:54%;top:92%;width:14%;height:5%;"></button>
+    <button class="ov" onclick="showToast('설정은 준비중입니다')" aria-label="설정" style="left:68%;top:92%;width:14%;height:5%;"></button>
+    <button class="ov" onclick="showToast('고객센터는 준비중입니다')" aria-label="고객센터" style="left:82%;top:92%;width:16%;height:5%;"></button>
+
+    <button class="ov" onclick="logoutConfirm()" aria-label="메뉴 로그아웃" style="left:40%;top:97%;width:58%;height:3%;"></button>
+  </div>
+
+  <div class="page" id="page-search">
+    <img class="bg" data-src="searchmodal.jpg" alt="보물 검색">
+    <button class="ov" onclick="goBack()" aria-label="검색 닫기" style="left:88%;top:13%;width:7%;height:4%;"></button>
+
+    <button class="ov" onclick="showToast('검색어를 입력해주세요')" aria-label="검색어 입력" style="left:5%;top:22%;width:68%;height:6%;"></button>
+    <button class="ov" onclick="showToast('검색어를 입력해주세요')" aria-label="검색하기" style="left:74%;top:22%;width:21%;height:6%;"></button>
+    <button class="ov" onclick="showToast('최근 검색어를 모두 삭제했습니다')" aria-label="최근 검색어 전체삭제" style="left:78%;top:31%;width:17%;height:4%;"></button>
+
+    <button class="ov" onclick="showToast('500원으로 검색합니다')" aria-label="최근 검색어 500원" style="left:5%;top:37%;width:27%;height:6%;"></button>
+    <button class="ov" onclick="showToast('지폐로 검색합니다')" aria-label="최근 검색어 지폐" style="left:34%;top:37%;width:23%;height:6%;"></button>
+    <button class="ov" onclick="showToast('세종대왕으로 검색합니다')" aria-label="최근 검색어 세종대왕" style="left:60%;top:37%;width:27%;height:6%;"></button>
+    <button class="ov" onclick="showToast('동전으로 검색합니다')" aria-label="최근 검색어 동전" style="left:5%;top:45%;width:27%;height:6%;"></button>
+
+    <button class="ov" onclick="showToast('500원으로 검색합니다')" aria-label="인기 검색어 500원" style="left:5%;top:57.7%;width:90%;height:4.7%;"></button>
+    <button class="ov" onclick="showToast('1000원으로 검색합니다')" aria-label="인기 검색어 1000원" style="left:5%;top:63.4%;width:90%;height:4.4%;"></button>
+    <button class="ov" onclick="showToast('세종대왕으로 검색합니다')" aria-label="인기 검색어 세종대왕" style="left:5%;top:68.7%;width:90%;height:4.5%;"></button>
+    <button class="ov" onclick="showToast('지폐로 검색합니다')" aria-label="인기 검색어 지폐" style="left:5%;top:74.2%;width:90%;height:4.4%;"></button>
+    <button class="ov" onclick="showToast('동전으로 검색합니다')" aria-label="인기 검색어 동전" style="left:5%;top:79.6%;width:90%;height:4.4%;"></button>
+
+    <button class="ov" onclick="navigate('home')" aria-label="홈" style="left:0%;top:91.3%;width:20%;height:7.1%;"></button>
+    <button class="ov" onclick="navigate('camera1')" aria-label="보물촬영" style="left:20%;top:91.3%;width:20%;height:7.1%;"></button>
+    <button class="ov" onclick="navigate('market')" aria-label="장터" style="left:40%;top:91.3%;width:20%;height:7.1%;"></button>
+    <button class="ov" onclick="navigate('auction')" aria-label="경매" style="left:60%;top:91.3%;width:20%;height:7.1%;"></button>
+    <button class="ov" onclick="navigate('mypage')" aria-label="마이보물" style="left:80%;top:91.3%;width:20%;height:7.1%;"></button>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="zoom-modal" onclick="camZoomClose()">
+    <img id="zoom-modal-img" alt="확대된 사진">
+  </div>
+
+  <div class="page" id="page-stub">
+    <div class="stub">
+      <h2 id="stub-title">준비중입니다</h2>
+      <p>이 화면은 다음 단계에서 이어서 작업할게요.</p>
+      <button onclick="goBack()">뒤로가기</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let stack = ['home'];
+  const STUB_TITLES = {
+    'stub-search': '통합검색',
+    'stub-alarm': '알림함',
+    'stub-menu': '전체메뉴',
+    'stub-camera': '보물 촬영하기',
+    'stub-market': '보물장터',
+    'stub-auction': '보물경매',
+    'stub-hunter': '보물헌터',
+    'stub-world': '세계의 보물',
+    'stub-mytreasure': '마이페이지',
+    'stub-register': '보물 등록하기',
+    'stub-item': '보물 상세보기',
+    'stub-inquiry': '판매자 문의',
+    'stub-purchase': '구매하기',
+    'stub-seller': '판매자 정보',
+    'stub-profile': '회원 정보',
+    'stub-points': '내 포인트',
+    'stub-registered': '등록한 보물',
+    'stub-appraising': '감정 진행중',
+    'stub-appraised': '감정 완료',
+    'stub-mybids': '내 경매 참여',
+    'stub-messages': '쪽지함 관리',
+    'stub-inquiries': '문의 내역',
+    'stub-notif-settings': '알림 설정',
+    'stub-account-settings': '계정 설정',
+    'stub-inquiry-detail': '문의 상세보기',
+    'stub-message-detail': '쪽지 보기',
+    'stub-point-history': '포인트 내역',
+    'stub-certificate': 'AI 감정서 보기',
+    'stub-paydone': '결제 완료'
+  };
+  let SELECTED_PAY_METHOD = '신용/체크카드';
+  let FRONT_PHOTO_URL = null;
+  let BACK_PHOTO_URL = null;
+
+  function loadBg(pageEl) {
+    if (!pageEl) return;
+    const img = pageEl.querySelector('img.bg[data-src]');
+    if (img) {
+      img.src = img.getAttribute('data-src');
+      img.removeAttribute('data-src');
+    }
+  }
+
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    let activeEl;
+    if (id.indexOf('stub-') === 0) {
+      document.getElementById('stub-title').textContent = STUB_TITLES[id] || '준비중입니다';
+      activeEl = document.getElementById('page-stub');
+    } else {
+      activeEl = document.getElementById('page-' + id);
+    }
+    activeEl.classList.add('active');
+    loadBg(activeEl);
+    window.scrollTo(0, 0);
+  }
+
+  function camShoot(prefix) {
+    document.getElementById(prefix + '-shoot-input').click();
+  }
+  function camPickAlbum(prefix) {
+    document.getElementById(prefix + '-album-input').click();
+  }
+  function camPhotoChosen(input, which) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    if (which === 'back') {
+      BACK_PHOTO_URL = url;
+      navigate('camera4');
+    } else {
+      FRONT_PHOTO_URL = url;
+      navigate('camera2');
+    }
+  }
+
+  function camRetake() {
+    goBack();
+  }
+
+  function camZoomOpen(which) {
+    let url;
+    if (which === 'front') url = FRONT_PHOTO_URL;
+    else if (which === 'back') url = BACK_PHOTO_URL;
+    else {
+      const active = document.querySelector('.page.active').id;
+      url = active === 'page-camera4' ? BACK_PHOTO_URL : FRONT_PHOTO_URL;
+    }
+    if (!url) return;
+    document.getElementById('zoom-modal-img').src = url;
+    document.getElementById('zoom-modal').classList.add('open');
+  }
+
+  let TOAST_TIMER = null;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    if (TOAST_TIMER) clearTimeout(TOAST_TIMER);
+    TOAST_TIMER = setTimeout(function () { t.classList.remove('show'); }, 1800);
+  }
+  function shareResult() {
+    const url = location.href;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function () {
+        showToast('공유 링크가 복사되었습니다');
+      }).catch(function () {
+        showToast('공유 링크가 복사되었습니다');
+      });
+    } else {
+      showToast('공유 링크가 복사되었습니다');
+    }
+  }
+  function camZoomClose() {
+    document.getElementById('zoom-modal').classList.remove('open');
+  }
+
+  const ITEM_PHOTOS = ['photo1.jpg', 'photo2.jpg', 'photo3.jpg', 'photo4.jpg'];
+  function itemSelectPhoto(n) {
+    document.getElementById('item-main-photo').src = ITEM_PHOTOS[n - 1];
+    document.getElementById('item-photo-counter').textContent = n + '/4';
+  }
+  function itemZoomOpen() {
+    document.getElementById('zoom-modal-img').src = document.getElementById('item-main-photo').src;
+    document.getElementById('zoom-modal').classList.add('open');
+  }
+
+  const HD_PHOTOS = ['hdthumb1.jpg', 'hdthumb2.jpg', 'hdthumb3.jpg'];
+  function hdSelectPhoto(n) {
+    document.getElementById('hd-main-photo').src = HD_PHOTOS[n - 1];
+  }
+  function hdZoomOpen() {
+    document.getElementById('zoom-modal-img').src = document.getElementById('hd-main-photo').src;
+    document.getElementById('zoom-modal').classList.add('open');
+  }
+
+  const HR_CAT_LEFT = {1:3.72, 2:19.32, 3:34.92, 4:50.52, 5:66.12, 6:81.72};
+  let HR_SELECTED_CAT = 1;
+  function hrSelectMove(n, name) {
+    const left = HR_CAT_LEFT[n];
+    const border = document.getElementById('hr-select-border');
+    const fill = document.getElementById('hr-select-fill');
+    border.style.left = left + '%';
+    fill.style.left = (left + 0.43) + '%';
+    fill.style.top = '43.9%';
+    fill.textContent = name;
+  }
+  function hrSelectCategory(n, name) {
+    HR_SELECTED_CAT = n;
+    hrSelectMove(n, name);
+    showToast(name + '을(를) 선택했습니다');
+  }
+  function hrSubmit() {
+    showToast('의뢰가 등록되었습니다');
+    navigate('hunterlist');
+  }
+
+  const AR_DUR_POS = {
+    1: {left: 3, width: 24},
+    2: {left: 27, width: 24},
+    3: {left: 50, width: 23},
+    4: {left: 73, width: 24}
+  };
+  let AR_SELECTED_DUR = 2;
+  function arDurRender(n) {
+    const pos = AR_DUR_POS[n];
+    const labels = {1: '1일', 2: '3일', 3: '5일', 4: '7일'};
+    const b = document.getElementById('ar-dur-border');
+    const f = document.getElementById('ar-dur-fill');
+    b.style.left = pos.left + '%';
+    b.style.width = pos.width + '%';
+    f.style.left = pos.left + '%';
+    f.style.width = pos.width + '%';
+    f.textContent = labels[n];
+  }
+  function arSelectDuration(n, label) {
+    AR_SELECTED_DUR = n;
+    arDurRender(n);
+    showToast(label + '으로 선택했습니다');
+  }
+  function arSubmit() {
+    showToast('경매가 등록되었습니다');
+    navigate('auction');
+  }
+
+  function certZoomOpen(which) {
+    document.getElementById('zoom-modal-img').src = which === 'front' ? 'photo1.jpg' : 'photo2.jpg';
+    document.getElementById('zoom-modal').classList.add('open');
+  }
+
+  const PAY_PHOTOS = ['paypic1.jpg', 'paypic2.jpg', 'paypic3.jpg', 'paypic4.jpg'];
+  function paySelectPhoto(n) {
+    document.getElementById('pay-main-photo').src = PAY_PHOTOS[n - 1];
+  }
+  function payZoomOpen() {
+    document.getElementById('zoom-modal-img').src = document.getElementById('pay-main-photo').src;
+    document.getElementById('zoom-modal').classList.add('open');
+  }
+  const PAY_CARD_POS = {
+    1: { borderLeft: 5.28, borderTop: 51.9, checkLeft: 43.2, checkTop: 52.3 },
+    2: { borderLeft: 53.29, borderTop: 51.9, checkLeft: 91.2, checkTop: 52.3 },
+    3: { borderLeft: 5.28, borderTop: 62.52, checkLeft: 43.2, checkTop: 62.92 },
+    4: { borderLeft: 53.29, borderTop: 62.52, checkLeft: 91.2, checkTop: 62.92 }
+  };
+  function paySelectMove(n) {
+    const pos = PAY_CARD_POS[n];
+    const b = document.getElementById('pay-select-border');
+    const c = document.getElementById('pay-select-check');
+    b.style.left = pos.borderLeft + '%';
+    b.style.top = pos.borderTop + '%';
+    c.style.left = pos.checkLeft + '%';
+    c.style.top = pos.checkTop + '%';
+  }
+  function paySelect(n, method) {
+    SELECTED_PAY_METHOD = method;
+    paySelectMove(n);
+    showToast(method + '를 선택했습니다');
+  }
+  function payConfirm() {
+    navigate('paydone');
+  }
+  function inqZoom(url) {
+    document.getElementById('zoom-modal-img').src = url;
+    document.getElementById('zoom-modal').classList.add('open');
+  }
+  function logoutConfirm() {
+    showToast('로그아웃되었습니다');
+    navigate('home');
+  }
+
+  const ALARM_DEFAULTS = {1:true, 2:true, 3:false, 4:true, 5:false, 6:true, 7:true};
+  const ALARM_LABELS = {1:'감정 완료 알림', 2:'경매 알림', 3:'댓글 알림', 4:'쪽지 알림', 5:'좋아요 알림', 6:'포인트 알림', 7:'공지사항 알림'};
+  let alarmState = Object.assign({}, ALARM_DEFAULTS);
+  function alarmRender(n) {
+    const on = alarmState[n];
+    const t = document.getElementById('al-toggle-' + n);
+    const l = document.getElementById('al-label-' + n);
+    t.classList.toggle('on', on);
+    t.classList.toggle('off', !on);
+    l.classList.toggle('on', on);
+    l.classList.toggle('off', !on);
+    l.textContent = on ? 'ON' : 'OFF';
+  }
+  function alarmToggle(n) {
+    alarmState[n] = !alarmState[n];
+    alarmRender(n);
+    showToast(ALARM_LABELS[n] + '을(를) ' + (alarmState[n] ? '켰습니다' : '껐습니다'));
+  }
+  function alarmReset() {
+    alarmState = Object.assign({}, ALARM_DEFAULTS);
+    for (let n = 1; n <= 7; n++) alarmRender(n);
+  }
+
+  function navigate(id) {
+    if (id === 'home') {
+      stack = ['home'];
+    } else {
+      stack.push(id);
+    }
+    if (id === 'camera2' && FRONT_PHOTO_URL) {
+      document.getElementById('cam2-preview').src = FRONT_PHOTO_URL;
+    }
+    if (id === 'camera4' && BACK_PHOTO_URL) {
+      document.getElementById('cam4-preview').src = BACK_PHOTO_URL;
+    }
+    if (id === 'result') {
+      if (FRONT_PHOTO_URL) document.getElementById('result-front-photo').src = FRONT_PHOTO_URL;
+      if (BACK_PHOTO_URL) document.getElementById('result-back-photo').src = BACK_PHOTO_URL;
+    }
+    if (id === 'item') itemSelectPhoto(1);
+    if (id === 'hunterdetail') document.getElementById('hd-main-photo').src = 'hdmain.jpg';
+    if (id === 'worlddetail') {
+      document.getElementById('wd-main-photo').src = 'wdmain.jpg';
+      document.getElementById('wd-photo-counter').textContent = '1/3';
+    }
+    if (id === 'hunterregister') { HR_SELECTED_CAT = 1; hrSelectMove(1, '동전'); }
+    if (id === 'auctionregister') { AR_SELECTED_DUR = 2; arDurRender(2); }
+    if (id === 'pay') { paySelectPhoto(1); SELECTED_PAY_METHOD = '신용/체크카드'; paySelectMove(1); }
+    if (id === 'notif') alarmReset();
+    showPage(id);
+    if (id === 'ai') aiStart();
+  }
+
+  let AI_TIMER = null;
+  function aiStart() {
+    if (AI_TIMER) { clearInterval(AI_TIMER); AI_TIMER = null; }
+    for (let i = 1; i <= 5; i++) {
+      document.getElementById('ai-bar-' + i).style.width = '0%';
+      document.getElementById('ai-pct-' + i).textContent = '0%';
+    }
+    document.getElementById('ai-result-btn-wrap').classList.add('dim');
+    document.getElementById('ai-result-btn').setAttribute('disabled', '');
+    aiRunStep(1);
+  }
+  function aiRunStep(i) {
+    if (i > 5) {
+      document.getElementById('ai-result-btn-wrap').classList.remove('dim');
+      document.getElementById('ai-result-btn').removeAttribute('disabled');
+      return;
+    }
+    const bar = document.getElementById('ai-bar-' + i);
+    const pct = document.getElementById('ai-pct-' + i);
+    let p = 0;
+    AI_TIMER = setInterval(function () {
+      p += 5;
+      if (p >= 100) {
+        p = 100;
+        clearInterval(AI_TIMER);
+        AI_TIMER = null;
+      }
+      bar.style.width = (p * 0.70 / 100) + '%';
+      pct.textContent = p + '%';
+      if (p >= 100) {
+        setTimeout(function () { aiRunStep(i + 1); }, 150);
+      }
+    }, 35);
+  }
+
+  const WD_PHOTOS = ['wdthumb1.jpg', 'wdthumb2.jpg'];
+  function wdSelectPhoto(n) {
+    document.getElementById('wd-main-photo').src = WD_PHOTOS[n - 1];
+    document.getElementById('wd-photo-counter').textContent = (n + 1) + '/3';
+  }
+  function wdZoomOpen() {
+    document.getElementById('zoom-modal-img').src = document.getElementById('wd-main-photo').src;
+    document.getElementById('zoom-modal').classList.add('open');
+  }
+
+  function goBack() {
+    if (stack.length > 1) stack.pop();
+    showPage(stack[stack.length - 1]);
+  }
+
+  loadBg(document.querySelector('.page.active'));
+
+  try { history.pushState({ trap: true }, '', location.href); } catch (e) {}
+  window.addEventListener('popstate', function () {
+    try { history.pushState({ trap: true }, '', location.href); } catch (e) {}
+    goBack();
+  });
+</script>
